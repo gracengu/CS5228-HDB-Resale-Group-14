@@ -1,6 +1,6 @@
-data/
-img/
-results/
+*.png
+*.csv
+*.zip
 __pycache__
 settings.json
 *Grace*
