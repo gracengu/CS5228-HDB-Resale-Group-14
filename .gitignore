@@ -1,0 +1,7 @@
+*.png
+data/
+backup
+*.zip
+__pycache__
+settings.json
+*Grace*
