@@ -1,5 +1,6 @@
 *.png
-*.csv
+data/
+backup
 *.zip
 __pycache__
 settings.json
