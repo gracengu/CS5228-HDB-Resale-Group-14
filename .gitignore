@@ -2,6 +2,7 @@
 data/
 backup
 *.zip
+*.csv
 __pycache__
 settings.json
 *Grace*
