@@ -543,7 +543,7 @@ def merge_primary_School(data_gdf, primary_School_gdf):
     primary_School_gdf = primary_School_gdf.reset_index()
     primary_School_gdf['id'] = primary_School_gdf['index']
     primary_School_gdf = primary_School_gdf.drop('index', axis=1)
-    data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 0.010)
+    data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 5, 500)
     data_gdf = data_gdf.rename(columns = {"closedIndex" : "closePrimaryID", 
                                    "inRangeCount" : "nearPrimaryCount", 
                                    "dist": "MinPrimaryDist"})
