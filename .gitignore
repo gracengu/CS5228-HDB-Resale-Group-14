@@ -5,3 +5,6 @@ backup
 __pycache__
 settings.json
 *Grace*
+
+.DS_Store
+results/
