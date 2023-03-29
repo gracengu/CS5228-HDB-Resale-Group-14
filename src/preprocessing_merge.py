@@ -35,6 +35,7 @@ warnings.filterwarnings("ignore")
 pio.renderers.default = 'notebook_connected'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 DATA_DIRECTORY = "../data/"
+DATA_DIRECTORY = "../data/"
 DATAPREPROCESSING_DIRECTORY = "../results/data_preprocessing/"
 DATAPREPROCESSINGIMG_DIRECTORY = "../img/data_preprocessing/"
 MODELPREPROCESSING_DIRECTORY = "../model/data_preprocessing/"
@@ -46,7 +47,7 @@ def df_to_gdf(data_df):
     data_gdf = data_gdf.to_crs(epsg=3414)
     return data_gdf
 
-def merge_auxiliary_data(data: DataFrame, commerical_df: str, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> DataFrame:
+def merge_auxiliary_data(data: DataFrame, commerical_df: DataFrame, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> DataFrame:
     '''Merge all the auxiliary dataset into train or test dataset'''
     # transfer dataframe to geo_dataframe
     data_gdf = df_to_gdf(data.rename(columns={"longitude": "lng", "latitude": "lat"}))
@@ -59,13 +60,14 @@ def merge_auxiliary_data(data: DataFrame, commerical_df: str, market_df, populat
 
     return data_gdf
 
-
 def merge_trainST_and_population(data_gdf, train_station_df, population_df):
     '''preprocess and merge dataset: train_station_df and population_df into train or test dataset'''
     hdbtrain_data = preprocess_trainstdata(data_gdf, train_station_df, train=True, save_results=False)
     age_count, agegroup_count_pivot, gender_count_pivot, pop_count = preprocess_popdata(population_df, save_results=False)
     data_gdf = merge_hdbtrain_popdemo(hdbtrain_data, agegroup_count_pivot, gender_count_pivot, pop_count, train=True, save_results=True)
     
+    data_gdf = data_gdf.rename(columns={'type': 'mrt_type'})
+
     return data_gdf
 
 
@@ -76,6 +78,8 @@ def merge_commerical_and_market(data_gdf, commerical_df, market_df):
 
     data_gdf = merge_commerical(data_gdf, commerical_gdf)
     data_gdf = merge_marketa(data_gdf, market_gdf) 
+
+    data_gdf = data_gdf.drop(columns={'name_commerical', 'name_market'}, axis=1)
 
     return data_gdf
 
@@ -323,12 +327,12 @@ def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender
 
 
 def merge_commerical(data_gdf, commerical_gdf):
-    data_gdf = ckdnearest1(data_gdf, commerical_gdf, 2000, 5)
+    data_gdf = ckdnearest1(data_gdf, commerical_gdf, 2, 5)
     data_gdf = data_gdf.rename(columns={'name': 'name_commerical', 'type': 'type_commerical', 'dist': 'nearest_dist_commerical', 'inRangeCount': 'inRangeCount_commerical'})
     return data_gdf
 
 def merge_marketa(data_gdf, market_gdf):
-    data_gdf = ckdnearest1(data_gdf, market_gdf, 1000, 10)
+    data_gdf = ckdnearest1(data_gdf, market_gdf, 1, 10)
     data_gdf = data_gdf.rename(columns={'name': 'name_market', 'dist': 'nearest_dist_market', 'inRangeCount': 'inRangeCount_market'})
     return data_gdf
 
@@ -350,6 +354,8 @@ def ckdnearest1(gdA, gdB, distRange, k):
     kNearest = range(1, k+1)
     
     dist, idx = btree.query(nA, k=kNearest)
+    dist = dist/1000
+    
     gdB_nearest = gdB.iloc[idx[:,0]].drop(columns={'lat', 'lng', "geometry"}).reset_index(drop=True)
     
     gdf = pd.concat(
@@ -382,6 +388,8 @@ def ckdnearest2(gdA, gdB, k, distance_threshold):
 #     dist is the distance array, idx is the index array
     dist, idx = btree.query(nA, kNearest)
 
+    dist = dist/1000
+
     gdB_nearest = gdB.iloc[idx[:,0]].drop(columns="geometry").reset_index(drop=True)
     
     gdf = pd.concat(
@@ -408,7 +416,7 @@ def merge_primary_School(data_gdf, primary_School_gdf):
     primary_School_gdf = primary_School_gdf.reset_index()
     primary_School_gdf['id'] = primary_School_gdf['index']
     primary_School_gdf = primary_School_gdf.drop('index', axis=1)
-    data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 0.010)
+    data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 1)
     data_gdf = data_gdf.rename(columns = {"closedIndex" : "closePrimaryID", 
                                    "inRangeCount" : "nearPrimaryCount", 
                                    "dist": "MinPrimaryDist"})
@@ -420,7 +428,7 @@ def merge_secondary_School(data_gdf, secondary_School_gdf):
     secondary_School_gdf = secondary_School_gdf.reset_index()
     secondary_School_gdf['id'] = secondary_School_gdf['index']
     secondary_School_gdf = secondary_School_gdf.drop('index', axis=1)
-    data_gdf = ckdnearest2(data_gdf, secondary_School_gdf, 5, 500)
+    data_gdf = ckdnearest2(data_gdf, secondary_School_gdf, 5, 1)
     data_gdf = data_gdf.rename(columns = {"closedIndex" : "closeSecondID", 
                                    "inRangeCount" : "nearSecondCount", 
                                    "dist": "MinSecDist"})
@@ -431,7 +439,7 @@ def merge_mall_School(data_gdf, mall_gdf):
     mall_gdf = mall_gdf.reset_index()
     mall_gdf['id'] = mall_gdf['index']
     mall_gdf = mall_gdf.drop('index', axis=1)
-    data_gdf = ckdnearest2(data_gdf, mall_gdf, 5, 500)
+    data_gdf = ckdnearest2(data_gdf, mall_gdf, 5, 1)
     data_gdf = data_gdf.rename(columns = {"closedIndex" : "closeShopID", 
                                    "inRangeCount" : "nearShopCount", 
                                    "dist": "MinShopDist"})
