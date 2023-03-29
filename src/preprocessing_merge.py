@@ -1,6 +1,6 @@
 # HDB Resale Price Prediction
 # Author: Grace Ngu Sook Ern, Hu Dong Yue, Cao Sheng, Guo Wei
-
+from typing import Tuple
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -27,13 +27,15 @@ import pygeos
 import geopy
 from geopy import distance
 
+import preprocessing_train_test
+
 import warnings
 warnings.filterwarnings("ignore")
 
 # Global Variables
 pio.renderers.default = 'notebook_connected'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-DATA_DIRECTORY = "../data/"
+DATA_DIRECTORY = "../../cs5228-202223-s2-location-location-location/"
 DATAPREPROCESSING_DIRECTORY = "../results/data_preprocessing/"
 DATAPREPROCESSINGIMG_DIRECTORY = "../img/data_preprocessing/"
 MODELPREPROCESSING_DIRECTORY = "../model/data_preprocessing/"
@@ -45,35 +47,23 @@ def df_to_gdf(data_df):
     data_gdf = data_gdf.to_crs(epsg=3414)
     return data_gdf
 
+def merge_auxiliary_data(train_df: DataFrame, test_df: DataFrame, commerical_df: str, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> Tuple[DataFrame, DataFrame]:
+    '''Merge all the auxiliary dataset into train or test dataset'''
+    train_df_processed, test_df_processed = preprocessing_train_test.preprocess(train=train_df, test=test_df)
 
-def preprocess_train_and_test(dataframe):
-    '''Preprocess train and test data and merge them. The final output is a geopandas dataframe.'''
-    # Preprocess train and test data
-    preprocess(dataframe)
-
-    dataframe = dataframe.rename(columns={"longitude": "lng", "latitude": "lat"})
-
+    #TODO: move this to function where the columns are used
+    dataframe = train_df_processed.rename(columns={"longitude": "lng", "latitude": "lat"})
     # transfer dataframe to geo_dataframe
     dataframe_gdf = df_to_gdf(dataframe)
 
-    # Drop duplicated rows
-    dataframe_gdf_drop_duplicated = dataframe_gdf.drop_duplicates(
-        keep="first", inplace=False)
-    return dataframe_gdf_drop_duplicated
+    data_gdf = merge_trainST_and_population(dataframe_gdf, train_station_df, population_df)
+
+    data_gdf = merge_commerical_and_market(dataframe_gdf, commerical_df, market_df)
 
 
-def merge_auxiliary_data(data_df, commerical_df, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df):
-    '''Merge all the auxiliary dataset into train or test dataset'''
-    data_gdf = preprocess_train_and_test(data_df)
+    data_gdf = merge_school_and_mall(dataframe_gdf, primary_School_df, secondary_School_df, mall_df)
 
-    data_gdf = merge_trainST_and_population(data_gdf, train_station_df, population_df)
-
-    data_gdf = merge_commerical_and_market(data_gdf, commerical_df, market_df)
-
-
-    data_gdf = merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall_df)
-
-    return data_gdf
+    return data_gdf, test_df_processed
 
 
 def merge_trainST_and_population(data_gdf, train_station_df, population_df):
@@ -106,125 +96,6 @@ def merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall
     data_gdf = merge_mall_School(data_gdf, mall_gdf)
     
     return data_gdf
-
-
-########################｜ for preprocess ｜##########################
-
-def preprocess_flat_type(data: DataFrame):
-    data["flat_type"] = data.flat_type.replace(to_replace="\s", value="-", regex=True)
-    # one-hot
-    oneHot = pd.get_dummies(data["flat_type"])
-    data = data.join(oneHot)
-    # target encoding
-    data["flat_type_price"] = data.groupby(["flat_type"])["resale_price"].transform(
-        "mean"
-    )
-    data["flat_type_psm"] = data.groupby(["flat_type"])["price_psm"].transform("mean")
-    # label encoding
-    mapping = {
-        "1-room": 1,
-        "2-room": 2,
-        "3-room": 3,
-        "4-room": 4,
-        "5-room": 5,
-        "multi-generation": 6,
-        "executive": 7,
-    }
-    data["flat_type_number"] = data["flat_type"].map(mapping)
-
-
-def preprocess_storey_range(data: DataFrame):
-    # merge to range of 3
-    data["storey_range_start"] = data["storey_range"].str[:2].astype("int") - 1
-    data["storey_range_processed"] = np.ceil(data["storey_range_start"] / 3) + 1
-    # target encoding
-    data["storey_range_price"] = data.groupby(["storey_range"])[
-        "resale_price"
-    ].transform("mean")
-    data["storey_range_price_psm"] = data.groupby(["storey_range"])[
-        "price_psm"
-    ].transform("mean")
-
-
-def preprocess_flat_model(data: DataFrame):
-    data["flat_model_price"] = data.groupby(["flat_model"])["resale_price"].transform(
-        "mean"
-    )
-    data["flat_model_psm"] = data.groupby(["flat_model"])["price_psm"].transform("mean")
-
-
-def preprocess_lat_lon(data: DataFrame):
-    # init and tell geopandas this is lat, long coordinates
-    geodata = gpd.GeoDataFrame(
-        geometry=gpd.points_from_xy(data["longitude"], data["latitude"]),
-        crs="EPSG:4326",
-    )
-    x_data = gpd.GeoDataFrame(
-        geometry=gpd.points_from_xy(data["longitude"], data["min_lat"]),
-        crs="EPSG:4326",
-    )
-    y_data = gpd.GeoDataFrame(
-        geometry=gpd.points_from_xy(data["min_lon"], data["latitude"]),
-        crs="EPSG:4326",
-    )
-    # transform coordinate so that can exact distance (in km) can be calculated
-    geodata.to_crs(epsg=3414, inplace=True)
-    x_data.to_crs(epsg=3414, inplace=True)
-    y_data.to_crs(epsg=3414, inplace=True)
-    # calculate distance
-    # adjust grid size if necessary
-    data["x_grid"] = (geodata.distance(y_data) / 1000).astype("int")
-    data["y_grid"] = (geodata.distance(x_data) / 1000).astype("int")
-
-    data["grid_price"] = data.groupby(["x_grid", "y_grid"])["resale_price"].transform(
-        "mean"
-    )
-    data["grid_price_psm"] = data.groupby(["x_grid", "y_grid"])["price_psm"].transform(
-        "mean"
-    )
-
-
-def preprocess_zone_street_region(data: DataFrame):
-    data["subzone_price"] = data.groupby(["subzone"])["resale_price"].transform("mean")
-    data["subzone_price_psm"] = data.groupby(["subzone"])["price_psm"].transform("mean")
-
-    data["street_name_price"] = data.groupby(["street_name"])["resale_price"].transform(
-        "mean"
-    )
-    data["street_name_price_psm"] = data.groupby(["street_name"])[
-        "price_psm"
-    ].transform("mean")
-
-    data["planning_area_price"] = data.groupby(["planning_area"])[
-        "resale_price"
-    ].transform("mean")
-    data["planning_area_price_psm"] = data.groupby(["planning_area"])[
-        "price_psm"
-    ].transform("mean")
-
-    data["region_price"] = data.groupby(["region"])["resale_price"].transform("mean")
-    data["region_price_psm"] = data.groupby(["region"])["price_psm"].transform("mean")
-
-
-def preprocess(data: DataFrame):
-    # temporary attributes
-    data["price_psm"] = data["resale_price"] / data["floor_area_sqm"]
-    data["datetime"] = pd.to_datetime(data.month)
-    data["min_lat"] = data["latitude"].min()
-    data["min_lon"] = data["longitude"].min()
-
-    # rebase month to 2000
-    data["month"] = (data["datetime"].dt.year - 2000) * 12 + data["datetime"].dt.month
-
-    # get remaining lease
-    data["remaining_lease"] = data["lease_commence_date"] + 99 - 2023
-    data = data.drop(columns="lease_commence_date")
-
-    preprocess_flat_type(data)
-    preprocess_storey_range(data)
-    preprocess_flat_model(data)
-    preprocess_lat_lon(data)
-    preprocess_zone_street_region(data)
 
 ################｜ for merge_trainST_and_population ｜##################
 
