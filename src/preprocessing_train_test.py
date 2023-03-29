@@ -148,7 +148,7 @@ def preprocess_zone_street_region(train: DataFrame, test: DataFrame):
     test["region_price_psm"] = test['region'].map(mapping)
 
 
-def preprocess(train: DataFrame, test: DataFrame) -> Tuple[DataFrame, DataFrame]:
+def preprocess_train_test(train: DataFrame, test: DataFrame) -> Tuple[DataFrame, DataFrame]:
     '''Preprocess train and test data. The final output is a tuple of train and test dataframe.'''
     # temporary attributes
     train["price_psm"] = train["resale_price"] / train["floor_area_sqm"]

@@ -1,6 +1,5 @@
 # HDB Resale Price Prediction
 # Author: Grace Ngu Sook Ern, Hu Dong Yue, Cao Sheng, Guo Wei
-from typing import Tuple
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
@@ -35,7 +34,7 @@ warnings.filterwarnings("ignore")
 # Global Variables
 pio.renderers.default = 'notebook_connected'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-DATA_DIRECTORY = "../../cs5228-202223-s2-location-location-location/"
+DATA_DIRECTORY = "../data/"
 DATAPREPROCESSING_DIRECTORY = "../results/data_preprocessing/"
 DATAPREPROCESSINGIMG_DIRECTORY = "../img/data_preprocessing/"
 MODELPREPROCESSING_DIRECTORY = "../model/data_preprocessing/"
@@ -47,23 +46,18 @@ def df_to_gdf(data_df):
     data_gdf = data_gdf.to_crs(epsg=3414)
     return data_gdf
 
-def merge_auxiliary_data(train_df: DataFrame, test_df: DataFrame, commerical_df: str, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> Tuple[DataFrame, DataFrame]:
+def merge_auxiliary_data(data: DataFrame, commerical_df: str, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> DataFrame:
     '''Merge all the auxiliary dataset into train or test dataset'''
-    train_df_processed, test_df_processed = preprocessing_train_test.preprocess(train=train_df, test=test_df)
-
-    #TODO: move this to function where the columns are used
-    dataframe = train_df_processed.rename(columns={"longitude": "lng", "latitude": "lat"})
     # transfer dataframe to geo_dataframe
-    dataframe_gdf = df_to_gdf(dataframe)
+    data_gdf = df_to_gdf(data.rename(columns={"longitude": "lng", "latitude": "lat"}))
 
-    data_gdf = merge_trainST_and_population(dataframe_gdf, train_station_df, population_df)
+    data_gdf = merge_trainST_and_population(data_gdf, train_station_df, population_df)
 
-    data_gdf = merge_commerical_and_market(dataframe_gdf, commerical_df, market_df)
+    data_gdf = merge_commerical_and_market(data_gdf, commerical_df, market_df)
 
+    data_gdf = merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall_df)
 
-    data_gdf = merge_school_and_mall(dataframe_gdf, primary_School_df, secondary_School_df, mall_df)
-
-    return data_gdf, test_df_processed
+    return data_gdf
 
 
 def merge_trainST_and_population(data_gdf, train_station_df, population_df):
