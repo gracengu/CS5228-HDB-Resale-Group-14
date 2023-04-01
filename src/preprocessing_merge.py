@@ -396,7 +396,6 @@ def ckdnearest2(gdA, gdB, k, distance_threshold):
         [
             gdA.reset_index(drop=True),
             gdB_nearest,
-            pd.Series(list(idx), name='closedIndex'),
             pd.Series(dist[:,0], name='dist')
         ], 
         axis=1)
@@ -406,41 +405,140 @@ def ckdnearest2(gdA, gdB, k, distance_threshold):
     for i in range(k):
         gdf['inRangeCount'] = np.where(dist[:, i-1]< distance_threshold, gdf['inRangeCount'] + 1, gdf['inRangeCount'])
         
-    gdf['closedIndex'] = gdf.apply(
-        lambda row: row['closedIndex'][0: row['inRangeCount']], axis=1)
-   
     return gdf
 
 
 def merge_primary_School(data_gdf, primary_School_gdf):
     primary_School_gdf = primary_School_gdf.reset_index()
-    primary_School_gdf['id'] = primary_School_gdf['index']
+    primary_School_gdf['primary_id'] = primary_School_gdf['index']
     primary_School_gdf = primary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 1)
-    data_gdf = data_gdf.rename(columns = {"closedIndex" : "closePrimaryID", 
+    data_gdf = data_gdf.rename(columns = {
                                    "inRangeCount" : "nearPrimaryCount", 
                                    "dist": "MinPrimaryDist"})
-    
+    data_gdf.drop(columns = ['name', 'lat',	'lng'], inplace = True)
     return data_gdf
 
 
 def merge_secondary_School(data_gdf, secondary_School_gdf):
     secondary_School_gdf = secondary_School_gdf.reset_index()
-    secondary_School_gdf['id'] = secondary_School_gdf['index']
+    secondary_School_gdf['second_id'] = secondary_School_gdf['index']
     secondary_School_gdf = secondary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, secondary_School_gdf, 5, 1)
-    data_gdf = data_gdf.rename(columns = {"closedIndex" : "closeSecondID", 
+    data_gdf = data_gdf.rename(columns = { 
                                    "inRangeCount" : "nearSecondCount", 
                                    "dist": "MinSecDist"})
+    data_gdf.drop(columns = ['name', 'lat',	'lng'], inplace = True)
     return data_gdf
 
 
 def merge_mall_School(data_gdf, mall_gdf):
     mall_gdf = mall_gdf.reset_index()
-    mall_gdf['id'] = mall_gdf['index']
+    mall_gdf['mall_id'] = mall_gdf['index']
     mall_gdf = mall_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, mall_gdf, 5, 1)
-    data_gdf = data_gdf.rename(columns = {"closedIndex" : "closeShopID", 
+    data_gdf = data_gdf.rename(columns = { 
                                    "inRangeCount" : "nearShopCount", 
                                    "dist": "MinShopDist"})
+    data_gdf['has_wikilink'] = data_gdf['wikipedia_link'].notnull().astype(int)
+    data_gdf.drop(columns = ['name', 'lat',	'lng', 'wikipedia_link'], inplace = True)
     return data_gdf
+
+
+################｜ Correlation Analysis ｜##################
+
+
+def visualize(dataset:DataFrame):
+    # Visualizing the correlations between numerical variables
+    plt.figure(figsize=(10,8))
+    sns.heatmap(dataset.corr(), cmap="RdBu")
+    plt.title("Correlations Between Variables", size=15)
+    plt.show()
+
+
+def filterDataset(dataset:DataFrame):
+    '''
+    Transform the catergorical data into numerical Data
+    Remove the geometry column temporily, since the data is not correct
+    '''
+
+    if 'geometry' in dataset.columns:
+        dataset.drop(columns='geometry', inplace=True)
+    # transform the categorical values into numerical values:
+    categorical_cols = dataset.select_dtypes(include=['object', 'category']).columns
+    le = LabelEncoder()
+    # apply LabelEncoder to each categorical column
+    for col in categorical_cols:
+        dataset[col] = le.fit_transform(dataset[col])
+    return dataset
+
+def findImportantColumns(dataset:DataFrame, correlationBar: float):
+    '''
+    find the feature that correlation is larger than the bar
+    '''
+    important_num_cols = list(dataset.corr()["resale_price"][(dataset.corr()["resale_price"]>correlationBar) | (dataset.corr()["resale_price"]<0 -correlationBar)].index)
+    return important_num_cols
+
+
+def calculateTopCorrelation(dataset: DataFrame):
+    ''' 
+    find the top n most correlated feature
+    '''
+    pearson_corr = []
+    for column in dataset.columns:
+        corr_coef = dataset[column].corr(dataset['resale_price'], method='pearson')
+        pearson_corr.append(abs(corr_coef))
+    
+    final_score = pd.DataFrame(zip(dataset.columns, pearson_corr), columns=[
+    "Columns", 'Pearson-score'])
+
+    final_score = final_score.sort_values(by=['Pearson-score'], ascending= [False])
+    return final_score
+
+
+def calculateTopChiSqure(dataset:DataFrame):
+    '''Run chi-squared correlation for categorical data'''
+    chi2_list = []
+    pval_list = []
+    for column in dataset.columns:
+        if column != 'resale_price':
+            contingency_table = pd.crosstab(
+                dataset[column], dataset['resale_price'])
+            chi2, pval, _, _ = chi2_contingency(contingency_table)
+            chi2_list.append(chi2)
+            pval_list.append(pval)
+
+    final_chi2 = pd.DataFrame(zip(dataset.columns, chi2_list, pval_list), columns=[
+        "columns", "Chi2_Statistic", "Pvalue"])
+
+    final_chi2 = final_chi2.sort_values(by=['Pvalue', 'Chi2_Statistic'], ascending= [True, False])
+    return final_chi2.iloc[0:30]
+
+
+def calculateAnova(data:DataFrame):
+    '''Run anova correlation for categorical data'''
+
+    anova_list = []
+    pval_list = []
+    col_list = []
+
+    for col in data.columns:
+        try:
+            if data[col].nunique() > 1:
+                model = sm.formula.ols(
+                    'resale_price ~ {}'.format(col), data=data).fit()
+                anova_table = sm.stats.anova_lm(model, typ=2)
+                f_stat = anova_table['F'][0]
+                p_val = anova_table['PR(>F)'][0]
+                anova_list.append(f_stat)
+                pval_list.append(p_val)
+                col_list.append(col)
+            else:
+                print(f"{col} does not have enough levels to compute ANOVA.")
+        except:
+                print(f"{col} cannot perform compute ANOVA.")
+
+    final_anova = pd.DataFrame(zip(col_list, anova_list, pval_list), columns=[
+        "Categorical_Column", "F_statistics", "Pvalue"])
+    final_anova = final_anova.sort_values(by=['Pvalue', 'F_statistics'], ascending= [True, False])
+    return final_anova.iloc[0:30]

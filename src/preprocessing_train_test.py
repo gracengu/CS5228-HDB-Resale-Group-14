@@ -177,8 +177,8 @@ def preprocess_train_test(train: DataFrame, test: DataFrame) -> Tuple[DataFrame,
     preprocess_lat_lon(train_processed, test_processed)
     preprocess_zone_street_region(train_processed, test_processed)
 
-    train_processed.drop(labels=['price_psm', 'datetime', 'min_lat', 'min_lon'], axis=1, inplace=True)
-    test_processed.drop(labels=['datetime', 'min_lat', 'min_lon'], axis=1, inplace=True)
+    train_processed.drop(labels=['price_psm', 'datetime', 'min_lat', 'min_lon', 'month'], axis=1, inplace=True)
+    test_processed.drop(labels=['datetime', 'min_lat', 'min_lon', 'month'], axis=1, inplace=True)
 
     train_drop_duplicated = train_processed.drop_duplicates(keep="first", inplace=False)
 
