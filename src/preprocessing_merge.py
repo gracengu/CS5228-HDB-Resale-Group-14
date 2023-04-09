@@ -154,52 +154,7 @@ def preprocess_trainstdata(data_gdf, train_station_df, train=False, save_results
     trainstation_w_hdb_data['distance_to_mrt_bins'] = pd.cut(
         trainstation_w_hdb_data['distance_to_mrt'], 3)
 
-    if train:
-
-        # Encode distance to mrt
-        le = LabelEncoder()
-        trainstation_w_hdb_data['distance_to_mrt_bins'] = le.fit_transform(
-            trainstation_w_hdb_data['distance_to_mrt_bins'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_distance_mrt_bins.npy'), le.classes_)
-
-        # Encode mrt_type
-        le = LabelEncoder()
-        trainstation_w_hdb_data['mrt_type'] = le.fit_transform(
-            trainstation_w_hdb_data['mrt_type'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_mrt_type_bins.npy'), le.classes_)
-
-        # Encode codes_name
-        le = LabelEncoder()
-        trainstation_w_hdb_data['mrt_codes'] = le.fit_transform(
-            trainstation_w_hdb_data['mrt_codes'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_mrt_codes_bins.npy'), le.classes_)
-
-    else:
-
-        # Encode distance to mrt for test
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_distance_mrt_bins.npy'), allow_pickle=True)
-        trainstation_w_hdb_data['distance_to_mrt_bins'] = le.transform(
-            trainstation_w_hdb_data['distance_to_mrt_bins'])
-
-        # Encode distance to mrt for test
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_mrt_type_bins.npy'), allow_pickle=True)
-        trainstation_w_hdb_data['mrt_type'] = le.transform(
-            trainstation_w_hdb_data['mrt_type'])
-
-        # Encode distance to mrt for test
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_mrt_codes_bins.npy'), allow_pickle=True)
-        trainstation_w_hdb_data['mrt_codes'] = le.transform(
-            trainstation_w_hdb_data['mrt_codes'])
-
+    # Category columns to be encoded
     if save_results:
         trainstation_w_hdb_data.to_csv(os.path.join(
             DATAPREPROCESSING_DIRECTORY, f"merge_hdb_{fname}.csv"), index=False)
@@ -277,6 +232,7 @@ def preprocess_popdata(pop_demographics, save_results=False, fname="train"):
 
 def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender_count_pivot, pop_count, train=False, save_results=False, fname="train"):
     '''Merge previously merge hdbtrain data with population demographics data'''
+    # TODO: male_female_ratio_bins, adult_children_ratio_bins, population_bins
 
     # Merge data
     merge_data = pd.merge(trainstation_w_hdb_data, pop_count.rename(columns={
@@ -299,18 +255,6 @@ def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender
         merge_data.male_female_ratio == np.Inf), "male_female_ratio"] = 0
     merge_data['male_female_ratio_bins'] = pd.cut(
         merge_data['male_female_ratio'], 3)
-    if train:
-        le = LabelEncoder()
-        merge_data['male_female_ratio_bins'] = le.fit_transform(
-            merge_data['male_female_ratio_bins'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_male_female_ratio_bins.npy'), le.classes_)
-    else:
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_male_female_ratio_bins.npy'), allow_pickle=True)
-        merge_data['male_female_ratio_bins'] = le.transform(
-            merge_data['male_female_ratio_bins'])
 
     # Feature Engineer: Adult Children Ratio
     merge_data["adult_children_ratio"] = merge_data[["young_adult_count", "adult_count", "senior_citizen_count"]].sum(
@@ -319,34 +263,9 @@ def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender
         merge_data.adult_children_ratio == np.Inf), "adult_children_ratio"] = 0
     merge_data['adult_children_ratio_bins'] = pd.cut(
         merge_data['adult_children_ratio'], 2)
-    if train:
-        le = LabelEncoder()
-        merge_data['adult_children_ratio_bins'] = le.fit_transform(
-            merge_data['adult_children_ratio_bins'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_adult_children_ratio_bins.npy'), le.classes_)
-    else:
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_adult_children_ratio_bins.npy'), allow_pickle=True)
-        merge_data['adult_children_ratio_bins'] = le.transform(
-            merge_data['adult_children_ratio_bins'])
 
     # Feature Engineer: Population Bins
     merge_data['population_bins'] = pd.cut(merge_data['population_count'], 3)
-
-    if train:
-        le = LabelEncoder()
-        merge_data['population_bins'] = le.fit_transform(
-            merge_data['population_bins'])
-        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                'le_population_bins.npy'), le.classes_)
-    else:
-        le = LabelEncoder()
-        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                           'le_population_bins.npy'), allow_pickle=True)
-        merge_data['population_bins'] = le.transform(
-            merge_data['population_bins'])
 
     # drop columns
     drop_cols = ['lat_left', 'lat_right', 'lng_left', 'lng_right',
@@ -363,7 +282,6 @@ def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender
 
 
 ################ ｜ for merge_commerical_and_market ｜##################
-
 
 def merge_commerical(data_gdf, commerical_gdf):
     data_gdf = ckdnearest1(data_gdf, commerical_gdf, 2, 5)
@@ -503,102 +421,6 @@ def visualize(dataset: DataFrame):
     plt.show()
 
 
-def filterDataset(dataset: DataFrame, train=False):
-    '''
-    Transform the catergorical data into numerical Data
-    Remove the geometry column temporily, since the data is not correct
-    '''
-
-    if 'geometry' in dataset.columns:
-        dataset.drop(columns='geometry', inplace=True)
-
-    # transform the categorical values into numerical values:
-    # categorical_cols = list(dataset.select_dtypes(
-    #     include=['object', 'category']).columns)
-
-    # Price columns don't encode
-    # Count columns maintain as label encoded
-    # flat_model_psm and flat_type_psm don't change
-    # Need to change one hot encoding/ frequency encoding or target encoding from original
-    # Remove opening year columns from training
-    # Storey range - not sure what's the best way to encode
-    # Others will do target encoding and frequency encoding
-
-    if train:
-
-        categorical_cols = []
-        for col in dataset.columns:
-            if (dataset[col].nunique() < 30) and (dataset[col].nunique() > 2):
-                if ("price" not in col) and ("count" not in col.lower()) and ("flat_model" not in col):
-                    categorical_cols.append(col)
-        with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'categorical_columns.pkl'), 'wb') as f:
-            pickle.dump(categorical_cols, f)
-
-        # columns to be label encoded - "count"
-        label_encode_cols = [
-            i for i in categorical_cols if "storey_range" in i]
-
-        # columns to be target/frequency encoded
-        target_freq_encode_cols = [
-            i for i in categorical_cols if i not in label_encode_cols]
-
-        if len(label_encode_cols) > 0:
-            le = LabelEncoder()
-            for col in label_encode_cols:
-                dataset[col+"_label_encode"] = le.fit_transform(dataset[col])
-                np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                     f'le_{col}.npy'), le.classes_)
-
-        if len(target_freq_encode_cols) > 0:
-            for col in target_freq_encode_cols:
-                category_means = dataset.groupby(col)['resale_price'].mean()
-                # Target encoding
-                dataset[col +
-                        "_target_encode"] = dataset[col].map(category_means)
-                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_means_{col}.pkl'), 'wb') as f:
-                    pickle.dump(category_means, f)
-
-                # Frequency encoding
-                category_freq = dataset[col].value_counts()
-                dataset[col+"_freq_encode"] = dataset[col].map(category_freq)
-                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_freq_{col}.pkl'), 'wb') as f:
-                    pickle.dump(category_freq, f)
-    else:
-
-        with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'categorical_columns.pkl'), 'rb') as f:
-            categorical_cols = pickle.load(f)
-
-        # columns to be label encoded - "count"
-        label_encode_cols = [
-            i for i in categorical_cols if "storey_range" in i]
-
-        # columns to be target/frequency encoded
-        target_freq_encode_cols = [
-            i for i in categorical_cols if i not in label_encode_cols]
-
-        if len(label_encode_cols) > 0:
-            le = LabelEncoder()
-            for col in label_encode_cols:
-                le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
-                                                   f'le_{col}.npy'), allow_pickle=True)
-                dataset[col+"_label_encode"] = le.transform(dataset[col])
-
-        if len(target_freq_encode_cols) > 0:
-            for col in target_freq_encode_cols:
-                # Target encoding
-                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_means_{col}.pkl'), 'rb') as f:
-                    category_means = pickle.load(f)
-                dataset[col +
-                        "_target_encode"] = dataset[col].map(category_means)
-
-                # Frequency encoding
-                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_freq_{col}.pkl'), 'rb') as f:
-                    category_freq = pickle.load(f)
-                dataset[col+"_freq_encode"] = dataset[col].map(category_freq)
-
-    return dataset
-
-
 def findImportantColumns(dataset: DataFrame, correlationBar: float):
     '''
     find the feature that correlation is larger than the bar
@@ -674,6 +496,3 @@ def calculateAnova(data: DataFrame):
     final_anova = final_anova.sort_values(
         by=['Pvalue', 'F_statistics'], ascending=[True, False])
     return final_anova.iloc[0:30]
-
-
-################ ｜ Encode categorical columns ｜##################
