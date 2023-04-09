@@ -27,6 +27,7 @@ import geopy
 from geopy import distance
 
 import preprocessing_train_test
+import pickle
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -42,31 +43,40 @@ MODELPREPROCESSING_DIRECTORY = "../model/data_preprocessing/"
 
 # Helper functions
 
+
 def df_to_gdf(data_df):
-    data_gdf = gpd.GeoDataFrame(data_df, geometry=gpd.points_from_xy(data_df.lng, data_df.lat), crs='EPSG:4326')
+    '''Convert latitude and longitude to metrics and convert pandas dataframe to geodataframe.'''
+    data_gdf = gpd.GeoDataFrame(data_df, geometry=gpd.points_from_xy(
+        data_df.lng, data_df.lat), crs='EPSG:4326')
     data_gdf = data_gdf.to_crs(epsg=3414)
     return data_gdf
+
 
 def merge_auxiliary_data(data: DataFrame, commerical_df: DataFrame, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> DataFrame:
     '''Merge all the auxiliary dataset into train or test dataset'''
     # transfer dataframe to geo_dataframe
-    data_gdf = df_to_gdf(data.rename(columns={"longitude": "lng", "latitude": "lat"}))
+    data_gdf = df_to_gdf(data.rename(
+        columns={"longitude": "lng", "latitude": "lat"}))
 
-    data_gdf = merge_trainST_and_population(data_gdf, train_station_df, population_df)
+    data_gdf = merge_trainST_and_population(
+        data_gdf, train_station_df, population_df)
 
     data_gdf = merge_commerical_and_market(data_gdf, commerical_df, market_df)
 
-    data_gdf = merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall_df)
+    data_gdf = merge_school_and_mall(
+        data_gdf, primary_School_df, secondary_School_df, mall_df)
 
     return data_gdf
 
+
 def merge_trainST_and_population(data_gdf, train_station_df, population_df):
     '''preprocess and merge dataset: train_station_df and population_df into train or test dataset'''
-    hdbtrain_data = preprocess_trainstdata(data_gdf, train_station_df, train=True, save_results=False)
-    age_count, agegroup_count_pivot, gender_count_pivot, pop_count = preprocess_popdata(population_df, save_results=False)
-    data_gdf = merge_hdbtrain_popdemo(hdbtrain_data, agegroup_count_pivot, gender_count_pivot, pop_count, train=True, save_results=True)
-    
-    data_gdf = data_gdf.rename(columns={'type': 'mrt_type'})
+    hdbtrain_data = preprocess_trainstdata(
+        data_gdf, train_station_df, train=True, save_results=False)
+    age_count, agegroup_count_pivot, gender_count_pivot, pop_count = preprocess_popdata(
+        population_df, save_results=False)
+    data_gdf = merge_hdbtrain_popdemo(
+        hdbtrain_data, agegroup_count_pivot, gender_count_pivot, pop_count, train=True, save_results=True)
 
     return data_gdf
 
@@ -77,11 +87,13 @@ def merge_commerical_and_market(data_gdf, commerical_df, market_df):
     market_gdf = df_to_gdf(market_df)
 
     data_gdf = merge_commerical(data_gdf, commerical_gdf)
-    data_gdf = merge_marketa(data_gdf, market_gdf) 
+    data_gdf = merge_marketa(data_gdf, market_gdf)
 
-    data_gdf = data_gdf.drop(columns={'name_commerical', 'name_market'}, axis=1)
+    data_gdf = data_gdf.drop(
+        columns={'name_commerical', 'name_market'}, axis=1)
 
     return data_gdf
+
 
 def merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall_df):
     '''preprocess and merge dataset: primary_School_df, secondary_School_df and mall_df into train or test dataset'''
@@ -92,45 +104,38 @@ def merge_school_and_mall(data_gdf, primary_School_df, secondary_School_df, mall
     data_gdf = merge_primary_School(data_gdf, primary_School_gdf)
     data_gdf = merge_secondary_School(data_gdf, secondary_School_gdf)
     data_gdf = merge_mall_School(data_gdf, mall_gdf)
-    
+
     return data_gdf
 
-################｜ for merge_trainST_and_population ｜##################
+################ ｜ for merge_trainST_and_population ｜##################
+
 
 def get_distance_km(row):
+    '''Calculate geodesic distances in kilometres.'''
     return geopy.distance.geodesic((row['lat_left'], row['lng_left']), (row['lat_right'], row['lng_right'])).km
+
 
 def preprocess_trainstdata(data_gdf, train_station_df, train=False, save_results=False, fname="train"):
     '''Preprocess train stations data and merge with train/test data.'''
-    # gdf_df, train_stations
+
     # Merge train stations data with full data based on nearest train stations
-    train_station_gdf = df_to_gdf(train_station_df)
-    # train_stations["geometry"] = train_stations.apply(
-    #     lambda row: Point(row['lng'], row['lat']), axis=1)
-    # gdf_train = gpd.GeoDataFrame(train_stations, geometry='geometry')
-    trainstation_w_hdb_data = data_gdf.sjoin_nearest(train_station_gdf)
+    train_station_gdf = df_to_gdf(train_station_df).rename(
+        columns={'type': 'mrt_type'})
+    trainstation_w_hdb_data = ckdnearest2(data_gdf, train_station_gdf, 10, 1)
+    trainstation_w_hdb_data = trainstation_w_hdb_data.rename(columns={
+        "inRangeCount": "nearest_mrt_counts",
+        "dist": "distance_to_mrt",
+        "name": "mrt_name"})
+    trainstation_w_hdb_data.drop(columns=['lat', 'lng'], inplace=True)
     assert trainstation_w_hdb_data.shape[0] == data_gdf.shape[
         0], "Merged data does not have the same shape as input data. Please check."
-
-    # # Feature Engineer: Distance to mrt (Euclidean distance)
-    trainstation_w_hdb_data = trainstation_w_hdb_data.rename(
-        columns={"name": "mrt_name"})
-    trainstation_w_hdb_data['geometry_left'] = trainstation_w_hdb_data.apply(
-        lambda row: Point(row['lng_left'], row['lat_left']), axis=1)
-    trainstation_w_hdb_data['geometry_right'] = trainstation_w_hdb_data.apply(
-        lambda row: Point(row['lng_right'], row['lat_right']), axis=1)
-    trainstation_w_hdb_data["distance_to_mrt"] = gpd.GeoSeries(
-        trainstation_w_hdb_data['geometry_left']).distance(gpd.GeoSeries(trainstation_w_hdb_data['geometry_right']))
-
-    # Feature Engineer: Distance to mrt (km)
-    trainstation_w_hdb_data["distance_to_mrt_km"] = trainstation_w_hdb_data[[
-        "lng_left", "lat_left", "lng_right", "lat_right"]].apply(get_distance_km, axis=1)
 
     # Feature Engineer: MRT-LRT Links
     mrt_lrt_links_list = list(train_station_df.loc[train_station_df.duplicated(
         subset='name', keep=False), "name"].unique())
     trainstation_w_hdb_data["mrt_lrt_links"] = np.where(
         trainstation_w_hdb_data.mrt_name.isin(mrt_lrt_links_list), 1, 0)
+    trainstation_w_hdb_data.drop(columns=['mrt_name'], inplace=True)
 
     # Feature Engineer: MRT Interchange count, NS16/NS16 - not counted as interchange
     mrt_interchange_list = [
@@ -142,24 +147,57 @@ def preprocess_trainstdata(data_gdf, train_station_df, train=False, save_results
 
     # Feature Engineer: Generate alphabetical train codes name from the alphanumeric codes name
     # TODO: Taking only the first code, check with team for opinion
-    trainstation_w_hdb_data['codes_name'] = trainstation_w_hdb_data['codes'].str[:2]
+    trainstation_w_hdb_data['mrt_codes'] = trainstation_w_hdb_data['codes'].str[:2]
 
     # Feature Engineer: Distance to mrt in bins
     trainstation_w_hdb_data['distance_to_mrt_bins'] = pd.cut(
         trainstation_w_hdb_data['distance_to_mrt'], 3)
+
     if train:
+
+        # Encode distance to mrt
         le = LabelEncoder()
         trainstation_w_hdb_data['distance_to_mrt_bins'] = le.fit_transform(
             trainstation_w_hdb_data['distance_to_mrt_bins'])
         np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
                 'le_distance_mrt_bins.npy'), le.classes_)
 
+        # Encode mrt_type
+        le = LabelEncoder()
+        trainstation_w_hdb_data['mrt_type'] = le.fit_transform(
+            trainstation_w_hdb_data['mrt_type'])
+        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                'le_mrt_type_bins.npy'), le.classes_)
+
+        # Encode codes_name
+        le = LabelEncoder()
+        trainstation_w_hdb_data['mrt_codes'] = le.fit_transform(
+            trainstation_w_hdb_data['mrt_codes'])
+        np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                'le_mrt_codes_bins.npy'), le.classes_)
+
     else:
+
+        # Encode distance to mrt for test
         le = LabelEncoder()
         le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
                                            'le_distance_mrt_bins.npy'), allow_pickle=True)
         trainstation_w_hdb_data['distance_to_mrt_bins'] = le.transform(
             trainstation_w_hdb_data['distance_to_mrt_bins'])
+
+        # Encode distance to mrt for test
+        le = LabelEncoder()
+        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                                           'le_mrt_type_bins.npy'), allow_pickle=True)
+        trainstation_w_hdb_data['mrt_type'] = le.transform(
+            trainstation_w_hdb_data['mrt_type'])
+
+        # Encode distance to mrt for test
+        le = LabelEncoder()
+        le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                                           'le_mrt_codes_bins.npy'), allow_pickle=True)
+        trainstation_w_hdb_data['mrt_codes'] = le.transform(
+            trainstation_w_hdb_data['mrt_codes'])
 
     if save_results:
         trainstation_w_hdb_data.to_csv(os.path.join(
@@ -323,25 +361,29 @@ def merge_hdbtrain_popdemo(trainstation_w_hdb_data, agegroup_count_pivot, gender
     return merge_data
 
 
-################｜ for merge_commerical_and_market ｜##################
+################ ｜ for merge_commerical_and_market ｜##################
 
 
 def merge_commerical(data_gdf, commerical_gdf):
     data_gdf = ckdnearest1(data_gdf, commerical_gdf, 2, 5)
-    data_gdf = data_gdf.rename(columns={'name': 'name_commerical', 'type': 'type_commerical', 'dist': 'nearest_dist_commerical', 'inRangeCount': 'inRangeCount_commerical'})
+    data_gdf = data_gdf.rename(columns={'name': 'name_commerical', 'type': 'type_commerical',
+                               'dist': 'nearest_dist_commerical', 'inRangeCount': 'inRangeCount_commerical'})
     return data_gdf
+
 
 def merge_marketa(data_gdf, market_gdf):
     data_gdf = ckdnearest1(data_gdf, market_gdf, 1, 10)
-    data_gdf = data_gdf.rename(columns={'name': 'name_market', 'dist': 'nearest_dist_market', 'inRangeCount': 'inRangeCount_market'})
+    data_gdf = data_gdf.rename(columns={
+                               'name': 'name_market', 'dist': 'nearest_dist_market', 'inRangeCount': 'inRangeCount_market'})
     return data_gdf
 
 
-def calculateCount (df, dist, k, distRange, inRangeCount):
+def calculateCount(df, dist, k, distRange, inRangeCount):
     df[inRangeCount] = 0
     for i in range(k):
-        df[inRangeCount] = np.where(dist[:, i-1]<distRange, df[inRangeCount] + 1, df[inRangeCount])
-    
+        df[inRangeCount] = np.where(
+            dist[:, i-1] < distRange, df[inRangeCount] + 1, df[inRangeCount])
+
     return df
 
 
@@ -350,61 +392,64 @@ def ckdnearest1(gdA, gdB, distRange, k):
     nA = np.array(list(gdA.geometry.apply(lambda x: (x.x, x.y))))
     nB = np.array(list(gdB.geometry.apply(lambda x: (x.x, x.y))))
     btree = cKDTree(nB)
-    
+
     kNearest = range(1, k+1)
-    
+
     dist, idx = btree.query(nA, k=kNearest)
     dist = dist/1000
-    
-    gdB_nearest = gdB.iloc[idx[:,0]].drop(columns={'lat', 'lng', "geometry"}).reset_index(drop=True)
-    
+
+    gdB_nearest = gdB.iloc[idx[:, 0]].drop(
+        columns={'lat', 'lng', "geometry"}).reset_index(drop=True)
+
     gdf = pd.concat(
         [
             gdA.reset_index(drop=True),
             gdB_nearest,
-            pd.Series(dist[:,0], name='dist'),
-#             pd.Series(dist[:,1], name='dist2'),
-#             pd.Series(dist[:,2], name='dist3'),
-#             pd.Series(dist[:,3], name='dist4'),
-#             pd.Series(dist[:,4], name='dist5'),
-        ], 
+            pd.Series(dist[:, 0], name='dist'),
+            #             pd.Series(dist[:,1], name='dist2'),
+            #             pd.Series(dist[:,2], name='dist3'),
+            #             pd.Series(dist[:,3], name='dist4'),
+            #             pd.Series(dist[:,4], name='dist5'),
+        ],
         axis=1)
 
     gdf = calculateCount(gdf, dist, k, distRange, 'inRangeCount')
-    
+
     return gdf
 
 
-################｜ for merge_school_and_mall ｜##################
+################ ｜ for merge_school_and_mall ｜##################
 
 def ckdnearest2(gdA, gdB, k, distance_threshold):
 
     nA = np.array(list(gdA.geometry.apply(lambda x: (x.x, x.y))))
     nB = np.array(list(gdB.geometry.apply(lambda x: (x.x, x.y))))
     btree = cKDTree(nB)
-    
+
     kNearest = range(1, k+1)
-    
+
 #     dist is the distance array, idx is the index array
     dist, idx = btree.query(nA, kNearest)
 
     dist = dist/1000
 
-    gdB_nearest = gdB.iloc[idx[:,0]].drop(columns="geometry").reset_index(drop=True)
-    
+    gdB_nearest = gdB.iloc[idx[:, 0]].drop(
+        columns="geometry").reset_index(drop=True)
+
     gdf = pd.concat(
         [
             gdA.reset_index(drop=True),
             gdB_nearest,
-            pd.Series(dist[:,0], name='dist')
-        ], 
+            pd.Series(dist[:, 0], name='dist')
+        ],
         axis=1)
 
     gdf['inRangeCount'] = 0
     distRange = 1
     for i in range(k):
-        gdf['inRangeCount'] = np.where(dist[:, i-1]< distance_threshold, gdf['inRangeCount'] + 1, gdf['inRangeCount'])
-        
+        gdf['inRangeCount'] = np.where(
+            dist[:, i-1] < distance_threshold, gdf['inRangeCount'] + 1, gdf['inRangeCount'])
+
     return gdf
 
 
@@ -413,10 +458,10 @@ def merge_primary_School(data_gdf, primary_School_gdf):
     primary_School_gdf['primary_id'] = primary_School_gdf['index']
     primary_School_gdf = primary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 1)
-    data_gdf = data_gdf.rename(columns = {
-                                   "inRangeCount" : "nearPrimaryCount", 
-                                   "dist": "MinPrimaryDist"})
-    data_gdf.drop(columns = ['name', 'lat',	'lng'], inplace = True)
+    data_gdf = data_gdf.rename(columns={
+        "inRangeCount": "nearPrimaryCount",
+        "dist": "MinPrimaryDist"})
+    data_gdf.drop(columns=['name', 'lat',	'lng'], inplace=True)
     return data_gdf
 
 
@@ -425,10 +470,10 @@ def merge_secondary_School(data_gdf, secondary_School_gdf):
     secondary_School_gdf['second_id'] = secondary_School_gdf['index']
     secondary_School_gdf = secondary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, secondary_School_gdf, 5, 1)
-    data_gdf = data_gdf.rename(columns = { 
-                                   "inRangeCount" : "nearSecondCount", 
-                                   "dist": "MinSecDist"})
-    data_gdf.drop(columns = ['name', 'lat',	'lng'], inplace = True)
+    data_gdf = data_gdf.rename(columns={
+        "inRangeCount": "nearSecondCount",
+        "dist": "MinSecDist"})
+    data_gdf.drop(columns=['name', 'lat',	'lng'], inplace=True)
     return data_gdf
 
 
@@ -437,26 +482,27 @@ def merge_mall_School(data_gdf, mall_gdf):
     mall_gdf['mall_id'] = mall_gdf['index']
     mall_gdf = mall_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, mall_gdf, 5, 1)
-    data_gdf = data_gdf.rename(columns = { 
-                                   "inRangeCount" : "nearShopCount", 
-                                   "dist": "MinShopDist"})
+    data_gdf = data_gdf.rename(columns={
+        "inRangeCount": "nearShopCount",
+        "dist": "MinShopDist"})
     data_gdf['has_wikilink'] = data_gdf['wikipedia_link'].notnull().astype(int)
-    data_gdf.drop(columns = ['name', 'lat',	'lng', 'wikipedia_link'], inplace = True)
+    data_gdf.drop(columns=['name', 'lat',	'lng',
+                  'wikipedia_link'], inplace=True)
     return data_gdf
 
 
-################｜ Correlation Analysis ｜##################
+################ ｜ Correlation Analysis ｜##################
 
 
-def visualize(dataset:DataFrame):
+def visualize(dataset: DataFrame):
     # Visualizing the correlations between numerical variables
-    plt.figure(figsize=(10,8))
+    plt.figure(figsize=(10, 8))
     sns.heatmap(dataset.corr(), cmap="RdBu")
     plt.title("Correlations Between Variables", size=15)
     plt.show()
 
 
-def filterDataset(dataset:DataFrame):
+def filterDataset(dataset: DataFrame, train=False):
     '''
     Transform the catergorical data into numerical Data
     Remove the geometry column temporily, since the data is not correct
@@ -464,19 +510,100 @@ def filterDataset(dataset:DataFrame):
 
     if 'geometry' in dataset.columns:
         dataset.drop(columns='geometry', inplace=True)
+
     # transform the categorical values into numerical values:
-    categorical_cols = dataset.select_dtypes(include=['object', 'category']).columns
-    le = LabelEncoder()
-    # apply LabelEncoder to each categorical column
-    for col in categorical_cols:
-        dataset[col] = le.fit_transform(dataset[col])
+    # categorical_cols = list(dataset.select_dtypes(
+    #     include=['object', 'category']).columns)
+
+    # Price columns don't encode
+    # Count columns maintain as label encoded
+    # flat_model_psm and flat_type_psm don't change
+    # Need to change one hot encoding/ frequency encoding or target encoding from original
+    # Remove opening year columns from training
+    # Storey range - not sure what's the best way to encode
+    # Others will do target encoding and frequency encoding
+
+    if train:
+
+        categorical_cols = []
+        for col in dataset.columns:
+            if (dataset[col].nunique() < 30) and (dataset[col].nunique() > 2):
+                if ("price" not in col) and ("count" not in col.lower()) and ("flat_model" not in col):
+                    categorical_cols.append(col)
+        with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'categorical_columns.pkl'), 'wb') as f:
+            pickle.dump(categorical_cols, f)
+
+        # columns to be label encoded - "count"
+        label_encode_cols = [
+            i for i in categorical_cols if "storey_range" in i]
+
+        # columns to be target/frequency encoded
+        target_freq_encode_cols = [
+            i for i in categorical_cols if i not in label_encode_cols]
+
+        if len(label_encode_cols) > 0:
+            le = LabelEncoder()
+            for col in label_encode_cols:
+                dataset[col+"_label_encode"] = le.fit_transform(dataset[col])
+                np.save(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                                     f'le_{col}.npy'), le.classes_)
+
+        if len(target_freq_encode_cols) > 0:
+            for col in target_freq_encode_cols:
+                category_means = dataset.groupby(col)['resale_price'].mean()
+                # Target encoding
+                dataset[col +
+                        "_target_encode"] = dataset[col].map(category_means)
+                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_means_{col}.pkl'), 'wb') as f:
+                    pickle.dump(category_means, f)
+
+                # Frequency encoding
+                category_freq = dataset[col].value_counts()
+                dataset[col+"_freq_encode"] = dataset[col].map(category_freq)
+                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_freq_{col}.pkl'), 'wb') as f:
+                    pickle.dump(category_freq, f)
+    else:
+
+        with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'categorical_columns.pkl'), 'rb') as f:
+            categorical_cols = pickle.load(f)
+
+        # columns to be label encoded - "count"
+        label_encode_cols = [
+            i for i in categorical_cols if "storey_range" in i]
+
+        # columns to be target/frequency encoded
+        target_freq_encode_cols = [
+            i for i in categorical_cols if i not in label_encode_cols]
+
+        if len(label_encode_cols) > 0:
+            le = LabelEncoder()
+            for col in label_encode_cols:
+                le.classes_ = np.load(os.path.join(MODELPREPROCESSING_DIRECTORY,
+                                                   f'le_{col}.npy'), allow_pickle=True)
+                dataset[col+"_label_encode"] = le.transform(dataset[col])
+
+        if len(target_freq_encode_cols) > 0:
+            for col in target_freq_encode_cols:
+                # Target encoding
+                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_means_{col}.pkl'), 'rb') as f:
+                    category_means = pickle.load(f)
+                dataset[col +
+                        "_target_encode"] = dataset[col].map(category_means)
+
+                # Frequency encoding
+                with open(os.path.join(MODELPREPROCESSING_DIRECTORY, f'category_freq_{col}.pkl'), 'rb') as f:
+                    category_freq = pickle.load(f)
+                dataset[col+"_freq_encode"] = dataset[col].map(category_freq)
+
     return dataset
 
-def findImportantColumns(dataset:DataFrame, correlationBar: float):
+
+def findImportantColumns(dataset: DataFrame, correlationBar: float):
     '''
     find the feature that correlation is larger than the bar
     '''
-    important_num_cols = list(dataset.corr()["resale_price"][(dataset.corr()["resale_price"]>correlationBar) | (dataset.corr()["resale_price"]<0 -correlationBar)].index)
+    important_num_cols = list(dataset.corr()["resale_price"][(dataset.corr()[
+                              "resale_price"] > correlationBar) | (dataset.corr()["resale_price"] < 0 - correlationBar)].index)
     return important_num_cols
 
 
@@ -486,17 +613,19 @@ def calculateTopCorrelation(dataset: DataFrame):
     '''
     pearson_corr = []
     for column in dataset.columns:
-        corr_coef = dataset[column].corr(dataset['resale_price'], method='pearson')
+        corr_coef = dataset[column].corr(
+            dataset['resale_price'], method='pearson')
         pearson_corr.append(abs(corr_coef))
-    
-    final_score = pd.DataFrame(zip(dataset.columns, pearson_corr), columns=[
-    "Columns", 'Pearson-score'])
 
-    final_score = final_score.sort_values(by=['Pearson-score'], ascending= [False])
+    final_score = pd.DataFrame(zip(dataset.columns, pearson_corr), columns=[
+        "Columns", 'Pearson-score'])
+
+    final_score = final_score.sort_values(
+        by=['Pearson-score'], ascending=[False])
     return final_score
 
 
-def calculateTopChiSqure(dataset:DataFrame):
+def calculateTopChiSqure(dataset: DataFrame):
     '''Run chi-squared correlation for categorical data'''
     chi2_list = []
     pval_list = []
@@ -511,11 +640,12 @@ def calculateTopChiSqure(dataset:DataFrame):
     final_chi2 = pd.DataFrame(zip(dataset.columns, chi2_list, pval_list), columns=[
         "columns", "Chi2_Statistic", "Pvalue"])
 
-    final_chi2 = final_chi2.sort_values(by=['Pvalue', 'Chi2_Statistic'], ascending= [True, False])
+    final_chi2 = final_chi2.sort_values(
+        by=['Pvalue', 'Chi2_Statistic'], ascending=[True, False])
     return final_chi2.iloc[0:30]
 
 
-def calculateAnova(data:DataFrame):
+def calculateAnova(data: DataFrame):
     '''Run anova correlation for categorical data'''
 
     anova_list = []
@@ -536,9 +666,13 @@ def calculateAnova(data:DataFrame):
             else:
                 print(f"{col} does not have enough levels to compute ANOVA.")
         except:
-                print(f"{col} cannot perform compute ANOVA.")
+            print(f"{col} cannot perform compute ANOVA.")
 
     final_anova = pd.DataFrame(zip(col_list, anova_list, pval_list), columns=[
         "Categorical_Column", "F_statistics", "Pvalue"])
-    final_anova = final_anova.sort_values(by=['Pvalue', 'F_statistics'], ascending= [True, False])
+    final_anova = final_anova.sort_values(
+        by=['Pvalue', 'F_statistics'], ascending=[True, False])
     return final_anova.iloc[0:30]
+
+
+################ ｜ Encode categorical columns ｜##################
