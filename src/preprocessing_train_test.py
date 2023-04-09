@@ -56,13 +56,13 @@ def preprocess_storey_range(train: DataFrame, test: DataFrame):
     test["storey_range_processed"] = np.ceil((test["storey_range_start"] - 1) / 3) + 1
 
     # target encoding
-    mapping = train.groupby(['storey_range'])['resale_price'].mean().to_dict()
-    train["storey_range_price"] = train['storey_range'].map(mapping)
-    test["storey_range_price"] = test['storey_range'].map(mapping)
+    mapping = train.groupby(['storey_range_processed'])['resale_price'].mean().to_dict()
+    train["storey_range_price"] = train['storey_range_processed'].map(mapping)
+    test["storey_range_price"] = test['storey_range_processed'].map(mapping)
 
-    mapping = train.groupby(['storey_range'])['price_psm'].mean().to_dict()
-    train["storey_range_price_psm"] = train['storey_range'].map(mapping)
-    test["storey_range_price_psm"] = test['storey_range'].map(mapping)
+    mapping = train.groupby(['storey_range_processed'])['price_psm'].mean().to_dict()
+    train["storey_range_price_psm"] = train['storey_range_processed'].map(mapping)
+    test["storey_range_price_psm"] = test['storey_range_processed'].map(mapping)
 
 
 def preprocess_flat_model(train: DataFrame, test: DataFrame):
@@ -123,13 +123,15 @@ def preprocess_zone_street_region(train: DataFrame, test: DataFrame):
     train["subzone_price_psm"] = train['subzone'].map(mapping)
     test["subzone_price_psm"] = test['subzone'].map(mapping)
 
-    mapping = train.groupby(['street_name'])['resale_price'].mean().to_dict()
-    train["street_name_price"] = train['street_name'].map(mapping)
-    test["street_name_price"] = test['street_name'].map(mapping)
+    # train["street_name"] = train["street_name"].str.lower()
+    # test["street_name"] = test["street_name"].str.lower()
+    # mapping = train.groupby(['street_name'])['resale_price'].mean().to_dict()
+    # train["street_name_price"] = train['street_name'].map(mapping)
+    # test["street_name_price"] = test['street_name'].map(mapping)
 
-    mapping = train.groupby(['street_name'])['price_psm'].mean().to_dict()
-    train["street_name_price_psm"] = train['street_name'].map(mapping)
-    test["street_name_price_psm"] = test['street_name'].map(mapping)
+    # mapping = train.groupby(['street_name'])['price_psm'].mean().to_dict()
+    # train["street_name_price_psm"] = train['street_name'].map(mapping)
+    # test["street_name_price_psm"] = test['street_name'].map(mapping)
 
     mapping = train.groupby(['planning_area'])['resale_price'].mean().to_dict()
     train["planning_area_price"] = train['planning_area'].map(mapping)
@@ -148,8 +150,10 @@ def preprocess_zone_street_region(train: DataFrame, test: DataFrame):
     test["region_price_psm"] = test['region'].map(mapping)
 
 
-def preprocess_train_test(train: DataFrame, test: DataFrame) -> Tuple[DataFrame, DataFrame]:
+def preprocess_train_test(train_raw: DataFrame, test_raw: DataFrame) -> Tuple[DataFrame, DataFrame]:
     '''Preprocess train and test data. The final output is a tuple of train and test dataframe.'''
+    train = train_raw.copy().reset_index(drop=True)
+    test = test_raw.copy().reset_index(drop=True)
     # temporary attributes
     train["price_psm"] = train["resale_price"] / train["floor_area_sqm"]
     
@@ -181,5 +185,6 @@ def preprocess_train_test(train: DataFrame, test: DataFrame) -> Tuple[DataFrame,
     test_processed.drop(labels=['datetime', 'min_lat', 'min_lon', 'month'], axis=1, inplace=True)
 
     train_drop_duplicated = train_processed.drop_duplicates(keep="first", inplace=False)
+    print(test_processed[test_processed.isnull().any(axis=1)])
 
     return train_drop_duplicated, test_processed

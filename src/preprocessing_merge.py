@@ -55,9 +55,10 @@ def df_to_gdf(data_df):
 def merge_auxiliary_data(data: DataFrame, commerical_df: DataFrame, market_df, population_df, primary_School_df, secondary_School_df, mall_df, train_station_df) -> DataFrame:
     '''Merge all the auxiliary dataset into train or test dataset'''
     # transfer dataframe to geo_dataframe
-    data_gdf = df_to_gdf(data.rename(
-        columns={"longitude": "lng", "latitude": "lat"}))
-
+    data['lng'] = data['longitude']
+    data['lat'] = data['latitude']
+    data_gdf = df_to_gdf(data)
+    
     data_gdf = merge_trainST_and_population(
         data_gdf, train_station_df, population_df)
 
@@ -66,7 +67,7 @@ def merge_auxiliary_data(data: DataFrame, commerical_df: DataFrame, market_df, p
     data_gdf = merge_school_and_mall(
         data_gdf, primary_School_df, secondary_School_df, mall_df)
 
-    return data_gdf
+    return data_gdf.drop(columns=['geometry'])
 
 
 def merge_trainST_and_population(data_gdf, train_station_df, population_df):
