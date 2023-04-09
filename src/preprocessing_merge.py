@@ -378,8 +378,8 @@ def merge_primary_School(data_gdf, primary_School_gdf):
     primary_School_gdf = primary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, primary_School_gdf, 10, 1)
     data_gdf = data_gdf.rename(columns={
-        "inRangeCount": "nearPrimaryCount",
-        "dist": "MinPrimaryDist"})
+        "inRangeCount": "near_primary_count",
+        "dist": "min_primary_dist"})
     data_gdf.drop(columns=['name', 'lat',	'lng'], inplace=True)
     return data_gdf
 
@@ -390,9 +390,9 @@ def merge_secondary_School(data_gdf, secondary_School_gdf):
     secondary_School_gdf = secondary_School_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, secondary_School_gdf, 5, 1)
     data_gdf = data_gdf.rename(columns={
-        "inRangeCount": "nearSecondCount",
-        "dist": "MinSecDist"})
-    data_gdf.drop(columns=['name', 'lat',	'lng'], inplace=True)
+        "inRangeCount": "near_second_count",
+        "dist": "min_sec_dist"})
+    data_gdf.drop(columns=['name', 'lat', 'lng'], inplace=True)
     return data_gdf
 
 
@@ -402,8 +402,8 @@ def merge_mall_School(data_gdf, mall_gdf):
     mall_gdf = mall_gdf.drop('index', axis=1)
     data_gdf = ckdnearest2(data_gdf, mall_gdf, 5, 1)
     data_gdf = data_gdf.rename(columns={
-        "inRangeCount": "nearShopCount",
-        "dist": "MinShopDist"})
+        "inRangeCount": "near_shop_count",
+        "dist": "min_shop_dist"})
     data_gdf['has_wikilink'] = data_gdf['wikipedia_link'].notnull().astype(int)
     data_gdf.drop(columns=['name', 'lat',	'lng',
                   'wikipedia_link'], inplace=True)
