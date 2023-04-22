@@ -9,3 +9,5 @@ settings.json
 
 .DS_Store
 results/
+model/
+*checkpoint*
