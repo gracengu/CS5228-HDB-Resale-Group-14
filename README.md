@@ -3,14 +3,21 @@
 HDB Flat Resale Price Prediction Based on Flat and Location Attributes
 CS5228 Group 14 Project Report
 Author: CAO Sheng, Grace NGU Sook Ern, GUO Wei, HU Dongyue
-Github Repo: https://github.com/gracengu/CS5228-HDB-Resale-Group-14
 Kaggle Group Name: Group 14
+
+Github Repo: https://github.com/gracengu/CS5228-HDB-Resale-Group-14
+Kaggle Competition Link:  https://www.kaggle.com/competitions/cs5228-202223-s2-location-location-location
 
 To reproduce envrionment: 
 
 ```{bash}
 conda env create -f win_environment.yml
 ```
+
+## Project Introduction
+
+This project aims to provide insights into the Singapore housing market by predicting the resale price of HDB flats and analysing the factors that affect the price. The dataset used in this project comes from data.gov and 99.co and contains 16 attributes such as month,  town, flat type, street_name. The report explores different data mining approaches such as exploratory data analysis, visualisation, and preprocessing, and evaluates various predictive models to select the best approach.
+
 
 ## Code Run Process
 
@@ -27,7 +34,7 @@ Code Structure:
 
 
 2. Model training 
-- src/model_linearregression_svm.ipynb: Performs linear regression and SVM modelling and k-fold cross validation for hyperparameter tuning
+- src/model_linearregression_lassor.ipynb: Performs linear regression and Lasso, Ridge modelling and k-fold cross validation for hyperparameter tuning
 - src/neural_network_mlp_training.ipynb and src/neural_network_mlp_evaluation.ipynb: Performs MLP modelling and k-fold cross validation for hyperparameter tuning
 - src/model_random_forest.ipynb: Performs RandomForest modelling and k-fold cross validation for hyperparameter tuning
 - src/model_xgboost.ipynb: Performs XGBoost modelling and k-fold cross validation for hyperparameter tuning
