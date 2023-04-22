@@ -58,7 +58,7 @@ def merge_auxiliary_data(data: DataFrame, commerical_df: DataFrame, market_df, p
     data['lng'] = data['longitude']
     data['lat'] = data['latitude']
     data_gdf = df_to_gdf(data)
-    
+
     data_gdf = merge_trainST_and_population(
         data_gdf, train_station_df, population_df)
 
@@ -416,7 +416,7 @@ def merge_mall_School(data_gdf, mall_gdf):
 def visualize(dataset: DataFrame):
     # Visualizing the correlations between numerical variables
     plt.figure(figsize=(10, 8))
-    sns.heatmap(dataset.corr(), cmap="RdBu")
+    sns.heatmap(dataset.corr(), cmap="YlGnBu")
     plt.title("Correlations Between Variables", size=15)
     plt.show()
 
