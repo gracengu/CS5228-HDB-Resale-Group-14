@@ -40,18 +40,23 @@ COLUMNS_TO_DROP = [
     "opening_year",
 ]
 
+
 def preprocess_month(data: DataFrame):
-    data["rebased_month"] = (data["datetime"].dt.year - 2000) * 12 + data["datetime"].dt.month
+    data["rebased_month"] = (data["datetime"].dt.year -
+                             2000) * 12 + data["datetime"].dt.month
 
 
 def preprocess_lease_commence_date(data: DataFrame):
-    data["remaining_lease"] = data["lease_commence_date"] + 99 - data["datetime"].dt.year
+    data["remaining_lease"] = data["lease_commence_date"] + \
+        99 - data["datetime"].dt.year
 
 
 def preprocess_flat_type(train: DataFrame, test: DataFrame) -> Tuple[DataFrame, DataFrame]:
     # correct inconsistent values
-    train["flat_type"] = train["flat_type"].replace(to_replace="\s", value="-", regex=True)
-    test["flat_type"] = test["flat_type"].replace(to_replace="\s", value="-", regex=True)
+    train["flat_type"] = train["flat_type"].replace(
+        to_replace="\s", value="-", regex=True)
+    test["flat_type"] = test["flat_type"].replace(
+        to_replace="\s", value="-", regex=True)
 
     # one-hot
     oneHot = pd.get_dummies(train["flat_type"])
@@ -87,18 +92,24 @@ def preprocess_flat_type(train: DataFrame, test: DataFrame) -> Tuple[DataFrame, 
 def preprocess_storey_range(train: DataFrame, test: DataFrame):
     # merge to range of 3. 1-based index
     train["storey_range_start"] = train["storey_range"].str[:2].astype("int")
-    train["storey_range_processed"] = np.ceil((train["storey_range_start"] - 1) / 3) + 1
+    train["storey_range_processed"] = np.ceil(
+        (train["storey_range_start"] - 1) / 3) + 1
     test["storey_range_start"] = test["storey_range"].str[:2].astype("int")
-    test["storey_range_processed"] = np.ceil((test["storey_range_start"] - 1) / 3) + 1
+    test["storey_range_processed"] = np.ceil(
+        (test["storey_range_start"] - 1) / 3) + 1
 
     # target encoding
-    mapping = train.groupby(["storey_range_processed"])["resale_price"].mean().to_dict()
+    mapping = train.groupby(["storey_range_processed"])[
+        "resale_price"].mean().to_dict()
     train["storey_range_price"] = train["storey_range_processed"].map(mapping)
     test["storey_range_price"] = test["storey_range_processed"].map(mapping)
 
-    mapping = train.groupby(["storey_range_processed"])["price_psm"].mean().to_dict()
-    train["storey_range_price_psm"] = train["storey_range_processed"].map(mapping)
-    test["storey_range_price_psm"] = test["storey_range_processed"].map(mapping)
+    mapping = train.groupby(["storey_range_processed"])[
+        "price_psm"].mean().to_dict()
+    train["storey_range_price_psm"] = train["storey_range_processed"].map(
+        mapping)
+    test["storey_range_price_psm"] = test["storey_range_processed"].map(
+        mapping)
 
 
 def preprocess_flat_model(train: DataFrame, test: DataFrame):
@@ -139,13 +150,17 @@ def preprocess_lat_lon(train: DataFrame, test: DataFrame):
     before_preprocess_lat_lon(train)
     before_preprocess_lat_lon(test)
 
-    mapping = train.groupby(["x_grid", "y_grid"])["resale_price"].mean().to_dict()
-    train["grid_price"] = train[["x_grid", "y_grid"]].agg(tuple, 1).map(mapping)
+    mapping = train.groupby(["x_grid", "y_grid"])[
+        "resale_price"].mean().to_dict()
+    train["grid_price"] = train[["x_grid", "y_grid"]].agg(
+        tuple, 1).map(mapping)
     test["grid_price"] = test[["x_grid", "y_grid"]].agg(tuple, 1).map(mapping)
 
     mapping = train.groupby(["x_grid", "y_grid"])["price_psm"].mean().to_dict()
-    train["grid_price_psm"] = train[["x_grid", "y_grid"]].agg(tuple, 1).map(mapping)
-    test["grid_price_psm"] = test[["x_grid", "y_grid"]].agg(tuple, 1).map(mapping)
+    train["grid_price_psm"] = train[["x_grid", "y_grid"]].agg(
+        tuple, 1).map(mapping)
+    test["grid_price_psm"] = test[["x_grid", "y_grid"]].agg(
+        tuple, 1).map(mapping)
 
     train.drop(labels=["x_grid", "y_grid"], axis=1, inplace=True)
     test.drop(labels=["x_grid", "y_grid"], axis=1, inplace=True)
@@ -186,7 +201,8 @@ def preprocess_zone_street_region(train: DataFrame, test: DataFrame):
     train["region_price_psm"] = train["region"].map(mapping)
     test["region_price_psm"] = test["region"].map(mapping)
 
-def target_encode(name: str, train:DataFrame, test:DataFrame):
+
+def target_encode(name: str, train: DataFrame, test: DataFrame):
     mapping = train.groupby([name])["resale_price"].mean().to_dict()
     new_column_name = name + "_price"
     train[new_column_name] = train[name].map(mapping)
@@ -224,7 +240,7 @@ def preprocess_train_test(
     preprocess_flat_model(train_processed, test_processed)
     preprocess_lat_lon(train_processed, test_processed)
     preprocess_zone_street_region(train_processed, test_processed)
-    
+
     for column_name in COLUMNS_TO_ENCODE:
         target_encode(column_name, train_processed, test_processed)
 
@@ -234,10 +250,12 @@ def preprocess_train_test(
     test_processed.drop(
         labels=["datetime", "min_lat", "min_lon", "month"], axis=1, inplace=True
     )
-    train_processed.drop(columns=COLUMNS_TO_DROP, inplace=True, errors='ignore')
+    train_processed.drop(columns=COLUMNS_TO_DROP,
+                         inplace=True, errors='ignore')
     test_processed.drop(columns=COLUMNS_TO_DROP, inplace=True, errors='ignore')
 
-    train_drop_duplicated = train_processed.drop_duplicates(keep="first", inplace=False)
+    train_drop_duplicated = train_processed.drop_duplicates(
+        keep="first", inplace=False)
     # print(test_processed[test_processed.isnull().any(axis=1)])
 
     return train_drop_duplicated, test_processed

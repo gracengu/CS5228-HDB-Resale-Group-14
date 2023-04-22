@@ -5,9 +5,7 @@ backup
 **/*.csv
 __pycache__
 settings.json
-*Grace*
 
 .DS_Store
-results/
 model/
-*checkpoint*
+

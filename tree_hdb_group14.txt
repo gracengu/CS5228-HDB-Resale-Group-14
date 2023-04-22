@@ -1,0 +1,77 @@
+.
+├── .DS_Store
+├── .gitignore
+├── .ipynb_checkpoints
+├── .vscode
+│   └── settings.json
+├── README.md
+├── data
+│   ├── .DS_Store
+│   ├── auxiliary-data
+│   │   ├── placeholder.txt
+│   │   ├── sg-commerical-centres.csv
+│   │   ├── sg-gov-markets-hawker-centres.csv
+│   │   ├── sg-population-demographics.csv
+│   │   ├── sg-primary-schools.csv
+│   │   ├── sg-secondary-schools.csv
+│   │   ├── sg-shopping-malls.csv
+│   │   └── sg-train-stations.csv
+│   ├── backup
+│   │   ├── merge_auxiliary_data_test.csv
+│   │   ├── merge_auxiliary_data_train.csv
+│   │   ├── pca_clustering_testing.csv
+│   │   ├── pca_clustering_training.csv
+│   │   ├── sample-submission.csv
+│   │   ├── test.csv.zip
+│   │   └── train.csv.zip
+│   ├── placeholder.txt
+│   ├── test.csv
+│   └── train.csv
+├── img
+│   ├── .DS_Store
+│   ├── data_preprocessing
+│   │   ├── popdemo_resalepricebyadulttochildrenratiobins.png
+│   │   ├── popdemo_resalepricebymaletofemaleratio.png
+│   │   ├── popdemo_resalepricebymaletofemaleratiobins.png
+│   │   ├── popdemo_resalepricebypopbins.png
+│   │   ├── trainst_resalepricebydistancemrt.png
+│   │   ├── trainst_resalepricebydistancemrtbins.png
+│   │   ├── trainst_resalepricebymainlrtcode.png
+│   │   ├── trainst_resalepricebymainmrtcode.png
+│   │   ├── trainst_resalepricebymrtinterchange.png
+│   │   ├── trainst_resalepricebymrtlrtlinks.png
+│   │   ├── trainst_resalepricebymrtopeningyear.png
+│   │   ├── trainst_resalepricebytraincode.png
+│   │   └── trainst_resalepricebytraintype.png
+├── model
+│   ├── .DS_Store
+│   └── data_preprocessing
+│       ├── categorical_columns.pkl
+├── results
+│   ├── .DS_Store
+│   ├── data_preprocessing
+│   ├── model_mlp
+│   │   ├── checkpoint.pkl
+│   │   ├── checkpoint_v2.pkl
+│   │   └── checkpoint_v3.pkl
+│   ├── placeholder.txt
+│   └── sample-submission.csv
+├── src
+│   ├── .DS_Store
+│   ├── .ipynb_checkpoints
+│   ├── __init__.py
+│   ├── clustering.py
+│   ├── clustering_kmeans_kmedoids_hierarchical.ipynb
+│   ├── linearregression_svm.ipynb
+│   ├── neural_network_evaluation.ipynb
+│   ├── neural_network_test.ipynb
+│   ├── pca_clustering_final.ipynb
+│   ├── preprocessing.ipynb
+│   ├── preprocessing_merge.py
+│   ├── preprocessing_train_test.py
+│   ├── random_forest.ipynb
+│   └── xgbmodel.ipynb
+├── tree_hdb.txt
+├── tree_hdb_group14.txt
+└── win_environment.yml
+
