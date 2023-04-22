@@ -416,7 +416,7 @@ def merge_mall_School(data_gdf, mall_gdf):
 def visualize(dataset: DataFrame):
     # Visualizing the correlations between numerical variables
     plt.figure(figsize=(10, 8))
-    sns.heatmap(dataset.corr(), cmap="RdBu")
+    sns.heatmap(abs(dataset.corr()), cmap="YlGnBu")
     plt.title("Correlations Between Variables", size=15)
     plt.show()
 
