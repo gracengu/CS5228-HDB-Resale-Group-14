@@ -6,6 +6,7 @@ Author: CAO Sheng, Grace NGU Sook Ern, GUO Wei, HU Dongyue
 Kaggle Group Name: Group 14
 
 Github Repo: https://github.com/gracengu/CS5228-HDB-Resale-Group-14
+
 Kaggle Competition Link:  https://www.kaggle.com/competitions/cs5228-202223-s2-location-location-location
 
 To reproduce envrionment: 
