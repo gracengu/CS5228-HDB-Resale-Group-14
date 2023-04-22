@@ -1,4 +1,3 @@
-*.png
 data/
 backup
 *.zip
@@ -8,4 +7,5 @@ settings.json
 
 .DS_Store
 model/
+img/
 
